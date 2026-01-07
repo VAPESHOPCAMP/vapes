@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V4PESHOPCAMP | Tienda Oficial</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --neon: #00ff41; --bg: #0a0a0a; --card: #1a1a1a; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; overflow-x: hidden; }
+        .navbar { position: sticky; top: 0; display: flex; justify-content: space-between; padding: 15px; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index: 100; border-bottom: 1px solid #333; }
+        .icon-btn { background: none; border: none; color: white; font-size: 1.5rem; position: relative; cursor: pointer; }
+        .badge { position: absolute; top: -5px; right: -5px; background: var(--neon); color: black; font-size: 0.7rem; padding: 2px 6px; border-radius: 50%; font-weight: bold; }
+        .screen { padding: 20px; display: none; max-width: 600px; margin: auto; }
+        .active { display: block; }
+        .form-box { background: var(--card); padding: 25px; border-radius: 20px; text-align: center; margin-top: 30px; border: 1px solid #333; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; font-size: 16px; }
+        .btn-main { background: var(--neon); color: black; border: none; width: 100%; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-main:active { transform: scale(0.98); }
+        .producto-card { background: var(--card); border-radius: 15px; padding: 15px; margin-bottom: 20px; border: 1px solid #222; }
+        .producto-card img { width: 100%; border-radius: 10px; max-height: 200px; object-fit: contain; margin-bottom: 10px; }
+        .sabor-row { display: flex; justify-content: space-between; align-items: center; background: #252525; padding: 10px; margin: 5px 0; border-radius: 8px; font-size: 0.9em; }
+        #modal-carrito { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 200; display: none; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .insta-btn { display: block; margin-top: 20px; color: #E1306C; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="nav" class="navbar" style="display: none;">
+        <button class="icon-btn" onclick="verPerfil()"><i class="fas fa-user-circle"></i></button>
+        <span style="color: var(--neon); font-weight: bold; font-size: 1.1rem;">V4PESHOPCAMP</span>
+        <button class="icon-btn" onclick="verCarrito()">
+            <i class="fas fa-shopping-cart"></i>
+            <span class="badge" id="cart-count">0</span>
+        </button>
+    </div>
+
+    <div id="screen-registro" class="screen active">
+        <div class="form-box">
+            <h1 style="color: var(--neon); margin-bottom: 5px;">V4PESHOPCAMP</h1>
+            <p style="color: #aaa; margin-bottom: 25px;">Tienda Local de Vapers</p>
+            <input type="text" id="reg-nombre" placeholder="Nombre completo">
+            <input type="tel" id="reg-tel" placeholder="WhatsApp (10 dígitos)">
+            <button class="btn-main" onclick="guardarRegistro()">ENTRAR A COMPRAR</button>
+            <a href="https://instagram.com/V4PESHOPCAMP" target="_blank" class="insta-btn">
+                <i class="fab fa-instagram"></i> Síguenos en Instagram
+            </a>
+        </div>
+    </div>
+
+    <div id="screen-catalogo" class="screen">
+        <div id="lista-productos"></div>
+    </div>
+
+    <div id="screen-perfil" class="screen">
+        <div class="form-box">
+            <h3>Mi Perfil</h3>
+            <input type="text" id="edit-nombre">
+            <input type="tel" id="edit-tel">
+            <button class="btn-main" onclick="actualizarPerfil()">GUARDAR CAMBIOS</button>
+            <button onclick="irACatalogo()" style="background:none; border:none; color:#aaa; margin-top:20px; cursor:pointer;">Regresar al catálogo</button>
+        </div>
+    </div>
+
+    <div id="modal-carrito">
+        <h2 style="color:var(--neon)">Mi Pedido</h2>
+        <div id="items-carrito"></div>
+        <div id="resumen-pago" style="margin-top:20px; border-top: 1px solid #333; padding-top: 15px; line-height: 1.8;"></div>
+        <select id="metodo-pago">
+            <option value="Efectivo">Efectivo al recibir</option>
+            <option value="Transferencia">Transferencia</option>
+            <option value="Deposito">Depósito OXXO</option>
+        </select>
+        <button class="btn-main" style="background:#25D366; color:white; margin-top:15px;" onclick="enviarPedido()">
+            <i class="fab fa-whatsapp"></i> PEDIR POR WHATSAPP
+        </button>
+        <button class="btn-main" style="background:#444; margin-top:10px;" onclick="cerrarCarrito()">SEGUIR COMPRANDO</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+        // CONFIGURACIÓN DE TU FIREBASE (Copia esto de tu consola de Firebase)
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-vNy_58D_ZKhnS0PAKFQGwlnsk3vnKzU",
+  authDomain: "v4peshop.firebaseapp.com",
+  projectId: "v4peshop",
+  storageBucket: "v4peshop.firebasestorage.app",
+  messagingSenderId: "981333518832",
+  appId: "1:981333518832:web:a0d5b9f73fea8b81365535",
+  measurementId: "G-K6DF2DCCRQ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        let carrito = [];
+
+        window.onload = () => {
+            const user = localStorage.getItem('vape_user');
+            if(user) {
+                mostrarPantalla('screen-catalogo');
+                document.getElementById('nav').style.display = 'flex';
+            }
+        };
+
+        window.guardarRegistro = () => {
+            const n = document.getElementById('reg-nombre').value;
+            const t = document.getElementById('reg-tel').value;
+            if(n && t) {
+                localStorage.setItem('vape_user', JSON.stringify({nombre: n, tel: t}));
+                mostrarPantalla('screen-catalogo');
+                document.getElementById('nav').style.display = 'flex';
+            } else { alert("Por favor, ingresa tu nombre y teléfono."); }
+        };
+
+        window.mostrarPantalla = (id) => {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            window.scrollTo(0,0);
+        };
+
+        onValue(ref(db, 'productos'), (snapshot) => {
+            const data = snapshot.val();
+            const container = document.getElementById('lista-productos');
+            container.innerHTML = data ? "" : "<p style='text-align:center;'>No hay productos disponibles por ahora.</p>";
+            for(let id in data) {
+                const p = data[id];
+                let saboresHtml = "";
+                for(let s in p.sabores) {
+                    const stock = p.sabores[s];
+                    saboresHtml += `
+                        <div class="sabor-row">
+                            <span>${s} <small>(${stock} disp)</small></span>
+                            <button class="btn-main" style="width:auto; padding:5px 15px;" 
+                                ${stock <= 0 ? 'disabled' : ''} 
+                                onclick="agregarALCarrito('${p.modelo}', '${s}', ${p.precio})">
+                                ${stock <= 0 ? 'Agotado' : '+ Agregar'}
+                            </button>
+                        </div>`;
+                }
+                container.innerHTML += `<div class="producto-card">
+                    <img src="${p.imagen || 'https://via.placeholder.com/200'}" onerror="this.src='https://via.placeholder.com/200'">
+                    <h3>${p.modelo}</h3>
+                    <p style="color:var(--neon); font-size:1.3rem; font-weight:bold; margin: 5px 0;">$${p.precio}</p>
+                    ${saboresHtml}
+                </div>`;
+            }
+        });
+
+        window.agregarALCarrito = (modelo, sabor, precio) => {
+            carrito.push({modelo, sabor, precio});
+            document.getElementById('cart-count').innerText = carrito.length;
+        };
+
+        window.verCarrito = () => {
+            document.getElementById('modal-carrito').style.display = 'block';
+            const itemsDiv = document.getElementById('items-carrito');
+            let total = carrito.reduce((s, i) => s + i.precio, 0);
+            let envio = (total >= 200 || total === 0) ? 0 : 50;
+
+            itemsDiv.innerHTML = carrito.length > 0 ? "" : "<p>No has agregado nada aún.</p>";
+            carrito.forEach((item, index) => {
+                itemsDiv.innerHTML += `<p style="display:flex; justify-content:space-between;">
+                    <span>${item.modelo} (${item.sabor})</span>
+                    <b>$${item.precio}</b>
+                </p>`;
+            });
+
+            document.getElementById('resumen-pago').innerHTML = `
+                Subtotal: $${total}<br>
+                Envío: ${envio === 0 ? '<b style="color:var(--neon)">GRATIS</b>' : '$50'}<br>
+                <b style="font-size:1.4rem;">TOTAL: $${total+envio}</b>
+            `;
+        };
+
+        window.enviarPedido = async () => {
+            if(carrito.length === 0) return alert("Tu carrito está vacío");
+            const user = JSON.parse(localStorage.getItem('vape_user'));
+            const pago = document.getElementById('metodo-pago').value;
+            let total = carrito.reduce((s, i) => s + i.precio, 0);
+            let envio = total >= 200 ? 0 : 50;
+
+            // Lógica de Lealtad (Suma automática)
+            const clienteRef = ref(db, 'clientes/' + user.tel);
+            const snapshot = await get(clienteRef);
+            let data = snapshot.val() || { nombre: user.nombre, vapesComprados: 0, regalosDados: 0 };
+            
+            let nuevosVapes = data.vapesComprados + carrito.length;
+            let nuevosRegalos = data.regalosDados || 0;
+
+            if (nuevosVapes >= 5) {
+                nuevosVapes = nuevosVapes - 5;
+                nuevosRegalos += 1;
+            }
+
+            await update(clienteRef, {
+                nombre: user.nombre,
+                vapesComprados: nuevosVapes,
+                regalosDados: nuevosRegalos,
+                ultimoPedido: new Date().toLocaleString()
+            });
+
+            const listaWhatsApp = carrito.map(i => `- ${i.modelo} (${i.sabor})`).join('%0A');
+            const texto = `*NUEVO PEDIDO V4PESHOPCAMP*%0A%0A` +
+                          `*Cliente:* ${user.nombre}%0A` +
+                          `*Tel:* ${user.tel}%0A%0A` +
+                          `*Productos:*%0A${listaWhatsApp}%0A%0A` +
+                          `*Total con envío:* $${total+envio}%0A` +
+                          `*Método de pago:* ${pago}%0A%0A` +
+                          `_📍 Por favor envía tu ubicación para el mandadito._`;
+            
+            // REEMPLAZA ESTE NÚMERO
+            window.open(`https://wa.me/522206308412?text=${texto}`);
+            
+            carrito = [];
+            document.getElementById('cart-count').innerText = 0;
+            cerrarCarrito();
+        };
+
+        window.verPerfil = () => {
+            const user = JSON.parse(localStorage.getItem('vape_user'));
+            document.getElementById('edit-nombre').value = user.nombre;
+            document.getElementById('edit-tel').value = user.tel;
+            mostrarPantalla('screen-perfil');
+        };
+
+        window.actualizarPerfil = () => {
+            const n = document.getElementById('edit-nombre').value;
+            const t = document.getElementById('edit-tel').value;
+            localStorage.setItem('vape_user', JSON.stringify({nombre: n, tel: t}));
+            alert("Perfil actualizado correctamente");
+            mostrarPantalla('screen-catalogo');
+        };
+
+        window.cerrarCarrito = () => document.getElementById('modal-carrito').style.display = 'none';
+        window.irACatalogo = () => mostrarPantalla('screen-catalogo');
+    </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Admin | V4PESHOPCAMP</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #00ff41; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { background: #000; color: white; cursor: pointer; font-weight: bold; border: none; }
+        .sabor-input { display: flex; gap: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #f8f8f8; }
+        .badge { background: gold; color: black; padding: 3px 8px; border-radius: 20px; font-weight: bold; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>V4PESHOPCAMP - Administrador</h2>
+    
+    <div class="grid">
+        <div id="nuevo-producto">
+            <h3>Subir Producto</h3>
+            <input type="text" id="modelo" placeholder="Modelo (Ej: Waka 10k)">
+            <input type="number" id="precio" placeholder="Precio ($)">
+            <input type="text" id="imagen" placeholder="URL de la Imagen">
+            
+            <div id="contenedor-sabores">
+                <div class="sabor-input">
+                    <input type="text" placeholder="Sabor" class="nom-s">
+                    <input type="number" placeholder="Cant" class="cant-s" style="width: 80px;">
+                </div>
+            </div>
+            <button onclick="otroSabor()" style="background:#28a745;">+ Añadir Sabor</button>
+            <button onclick="subir()" style="background:#007bff; margin-top:10px;">PUBLICAR EN TIENDA</button>
+        </div>
+
+        <div>
+            <h3>Clientes y Regalos</h3>
+            <div id="clientes-lista">Cargando clientes...</div>
+        </div>
+    </div>
+
+    <hr style="margin:40px 0;">
+    <h3>Inventario en Tienda</h3>
+    <div id="mi-inventario"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    const firebaseConfig = {
+       apiKey: "AIzaSyC-vNy_58D_ZKhnS0PAKFQGwlnsk3vnKzU",
+  authDomain: "v4peshop.firebaseapp.com",
+  projectId: "v4peshop",
+  storageBucket: "v4peshop.firebasestorage.app",
+  messagingSenderId: "981333518832",
+  appId: "1:981333518832:web:a0d5b9f73fea8b81365535",
+  measurementId: "G-K6DF2DCCRQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Funciones de Producto
+    window.otroSabor = () => {
+        const div = document.createElement('div');
+        div.className = 'sabor-input';
+        div.innerHTML = `<input type="text" placeholder="Sabor" class="nom-s"><input type="number" placeholder="Cant" class="cant-s" style="width: 80px;">`;
+        document.getElementById('contenedor-sabores').appendChild(div);
+    };
+
+    window.subir = () => {
+        const mod = document.getElementById('modelo').value;
+        const pre = document.getElementById('precio').value;
+        const img = document.getElementById('imagen').value;
+        const n = document.querySelectorAll('.nom-s');
+        const c = document.querySelectorAll('.cant-s');
+        let sab = {};
+        n.forEach((el, i) => { if(el.value) sab[el.value] = parseInt(c[i].value); });
+
+        if(mod && pre && Object.keys(sab).length > 0) {
+            push(ref(db, 'productos'), { modelo: mod, precio: parseInt(pre), imagen: img, sabores: sab })
+            .then(() => { alert("¡Producto Subido!"); location.reload(); });
+        } else { alert("Faltan datos"); }
+    };
+
+    // Ver Inventario
+    onValue(ref(db, 'productos'), (snap) => {
+        const data = snap.val();
+        const div = document.getElementById('mi-inventario');
+        div.innerHTML = "<table><tr><th>Modelo</th><th>Precio</th><th>Acción</th></tr>";
+        for(let id in data) {
+            div.querySelector('table').innerHTML += `<tr>
+                <td>${data[id].modelo}</td>
+                <td>$${data[id].precio}</td>
+                <td><button onclick="eliminar('${id}')" style="background:red; width:auto; padding:5px 10px;">Borrar</button></td>
+            </tr>`;
+        }
+        div.innerHTML += "</table>";
+    });
+
+    window.eliminar = (id) => { if(confirm("¿Borrar producto?")) remove(ref(db, 'productos/'+id)); };
+
+    // Ver Clientes
+    onValue(ref(db, 'clientes'), (snap) => {
+        const data = snap.val();
+        const cont = document.getElementById('clientes-lista');
+        cont.innerHTML = "<table><tr><th>Nombre/Tel</th><th>Vapes</th><th>🎁</th></tr>";
+        for(let tel in data) {
+            const c = data[tel];
+            cont.querySelector('table').innerHTML += `<tr>
+                <td>${c.nombre}<br><small>${tel}</small></td>
+                <td>${c.vapesComprados}/5</td>
+                <td><span class="badge">${c.regalosDados || 0}</span></td>
+            </tr>`;
+        }
+        cont.innerHTML += "</table>";
+    });
+</script>
+</body>
+</html>
