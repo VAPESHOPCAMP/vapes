@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Control | V4PESHOPCAMP</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
+        .container { max-width: 600px; background: white; padding: 20px; border-radius: 10px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        .sabor-input { display: flex; gap: 10px; }
+        .item-lista { border-bottom: 1px solid #ccc; padding: 10px 0; display: flex; justify-content: space-between; }
+        .btn-borrar { background: #dc3545; width: auto; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>V4PESHOPCAMP - Administrador</h2>
+    
+    <div id="formulario">
+        <label>Modelo del Vape:</label>
+        <input type="text" id="modelo" placeholder="Ej: Waka SoPro 10k">
+        
+        <label>Precio ($):</label>
+        <input type="number" id="precio" placeholder="Ej: 350">
+        
+        <label>URL de la Imagen:</label>
+        <input type="text" id="imagen" placeholder="Pega el link de la foto aquí">
+
+        <hr>
+        <h4>Sabores y Stock</h4>
+        <div id="lista-sabores-temp">
+            <div class="sabor-input">
+                <input type="text" placeholder="Sabor (Ej: Fresa)" class="nom-sabor">
+                <input type="number" placeholder="Stock" class="cant-sabor" style="width: 80px;">
+            </div>
+        </div>
+        <button type="button" onclick="agregarCampoSabor()" style="background: #28a745;">+ Agregar otro sabor</button>
+        
+        <button onclick="guardarProducto()">SUBIR PRODUCTO AL CATÁLOGO</button>
+    </div>
+
+    <hr>
+    <h3>Inventario Actual</h3>
+    <div id="inventario"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+    // PEGA AQUÍ TUS DATOS DE FIREBASE IGUAL QUE EN EL INDEX
+    const firebaseConfig = {
+        apiKey: "AIzaSyC-vNy_58D_ZKhnS0PAKFQGwlnsk3vnKzU",
+  authDomain: "v4peshop.firebaseapp.com",
+  projectId: "v4peshop",
+  storageBucket: "v4peshop.firebasestorage.app",
+  messagingSenderId: "981333518832",
+  appId: "1:981333518832:web:a0d5b9f73fea8b81365535",
+  measurementId: "G-K6DF2DCCRQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.agregarCampoSabor = () => {
+        const div = document.createElement('div');
+        div.className = 'sabor-input';
+        div.innerHTML = `
+            <input type="text" placeholder="Sabor" class="nom-sabor">
+            <input type="number" placeholder="Stock" class="cant-sabor" style="width: 80px;">
+        `;
+        document.getElementById('lista-sabores-temp').appendChild(div);
+    };
+
+    window.guardarProducto = () => {
+        const modelo = document.getElementById('modelo').value;
+        const precio = document.getElementById('precio').value;
+        const imagen = document.getElementById('imagen').value;
+        
+        // Recolectar sabores
+        const nombres = document.querySelectorAll('.nom-sabor');
+        const cantidades = document.querySelectorAll('.cant-sabor');
+        let saboresObj = {};
+
+        nombres.forEach((n, i) => {
+            if(n.value) {
+                saboresObj[n.value] = parseInt(cantidades[i].value);
+            }
+        });
+
+        if(modelo && precio) {
+            const nuevoRef = push(ref(db, 'productos'));
+            set(nuevoRef, {
+                modelo,
+                precio: parseInt(precio),
+                imagen,
+                sabores: saboresObj
+            }).then(() => {
+                alert("¡Producto agregado!");
+                location.reload();
+            });
+        }
+    };
+
+    // Mostrar inventario para poder borrar
+    onValue(ref(db, 'productos'), (snapshot) => {
+        const data = snapshot.val();
+        const div = document.getElementById('inventario');
+        div.innerHTML = "";
+        for(let id in data) {
+            div.innerHTML += `
+                <div class="item-lista">
+                    <span>${data[id].modelo} ($${data[id].precio})</span>
+                    <button class="btn-borrar" onclick="borrar('${id}')">Borrar</button>
+                </div>
+            `;
+        }
+    });
+
+    window.borrar = (id) => {
+        if(confirm("¿Seguro que quieres eliminar este producto?")) {
+            remove(ref(db, 'productos/' + id));
+        }
+    };
+</script>
+</body>
+</html>
